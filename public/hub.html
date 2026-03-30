@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Super Agent Hub</title>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Bebas+Neue&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #090b10;
+      --surface: rgba(255,255,255,0.03);
+      --border: rgba(255,255,255,0.07);
+      --text: #dde6f0;
+      --muted: rgba(255,255,255,0.3);
+      --n8n: #EA4B71;
+      --gmail: #EA4335;
+      --canva: #7D2AE8;
+      --ai: #00C9A7;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'IBM Plex Sans', sans-serif;
+      height: 100vh;
+      display: flex;
+      overflow: hidden;
+    }
+
+    /* ── SIDEBAR ── */
+    #sidebar {
+      width: 64px;
+      flex-shrink: 0;
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 18px 0;
+      gap: 4px;
+      background: rgba(0,0,0,0.25);
+    }
+
+    .sidebar-label {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 12px;
+      letter-spacing: 0.2em;
+      color: rgba(255,255,255,0.12);
+      writing-mode: vertical-lr;
+      transform: rotate(180deg);
+      margin-bottom: 16px;
+    }
+
+    .nav-btn {
+      width: 42px; height: 42px;
+      border-radius: 11px;
+      border: 1.5px solid transparent;
+      background: transparent;
+      cursor: pointer;
+      font-size: 18px;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.18s;
+      color: white;
+    }
+    .nav-btn.active { background: rgba(255,255,255,0.08); }
+    .nav-btn[data-section="n8n"].active    { border-color: var(--n8n);   background: rgba(234,75,113,0.15); box-shadow: 0 0 16px rgba(234,75,113,0.25); }
+    .nav-btn[data-section="gmail"].active  { border-color: var(--gmail);  background: rgba(234,67,53,0.15);  box-shadow: 0 0 16px rgba(234,67,53,0.25);  }
+    .nav-btn[data-section="canva"].active  { border-color: var(--canva);  background: rgba(125,42,232,0.15); box-shadow: 0 0 16px rgba(125,42,232,0.25); }
+    .nav-btn[data-section="ai"].active     { border-color: var(--ai);     background: rgba(0,201,167,0.15);  box-shadow: 0 0 16px rgba(0,201,167,0.25);  }
+
+    /* ── MAIN ── */
+    #main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+    #header {
+      padding: 13px 22px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 10px;
+      background: rgba(255,255,255,0.015);
+      flex-shrink: 0;
+    }
+
+    .header-icon {
+      width: 34px; height: 34px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+    }
+
+    .header-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 19px;
+      letter-spacing: 0.05em;
+      line-height: 1;
+    }
+
+    .header-sub { font-size: 10.5px; color: var(--muted); margin-top: 1px; }
+
+    .tab-pills { margin-left: auto; display: flex; gap: 5px; }
+    .tab-pill {
+      padding: 4px 10px; border-radius: 16px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted); font-size: 11px;
+      cursor: pointer; font-family: inherit;
+      transition: all 0.15s;
+    }
+    .tab-pill.active { color: white; }
+    .tab-pill[data-section="n8n"].active    { border-color: rgba(234,75,113,0.5);   background: rgba(234,75,113,0.15);   color: var(--n8n); }
+    .tab-pill[data-section="gmail"].active  { border-color: rgba(234,67,53,0.5);    background: rgba(234,67,53,0.15);    color: var(--gmail); }
+    .tab-pill[data-section="canva"].active  { border-color: rgba(125,42,232,0.5);   background: rgba(125,42,232,0.15);   color: var(--canva); }
+    .tab-pill[data-section="ai"].active     { border-color: rgba(0,201,167,0.5);    background: rgba(0,201,167,0.15);    color: var(--ai); }
+
+    #content {
+      flex: 1; overflow-y: auto; padding: 20px 22px;
+    }
+
+    /* ── SECTIONS ── */
+    .section { display: none; height: 100%; }
+    .section.active { display: flex; flex-direction: column; }
+
+    /* ── GRID ── */
+    .grid2 { display: grid; grid-template-columns: repeat(2,1fr); gap: 7px; }
+
+    /* ── ACTION CARDS ── */
+    .action-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px; padding: 10px 12px;
+      cursor: pointer; text-align: left;
+      transition: all 0.15s;
+    }
+    .action-card:hover { background: rgba(255,255,255,0.06); }
+    .action-card .card-title { font-size: 12.5px; font-weight: 600; color: #c8d4e0; }
+    .action-card .card-sub   { font-size: 11px; color: var(--muted); margin-top: 2px; line-height: 1.4; }
+
+    /* ── SECTION LABEL ── */
+    .sec-label {
+      font-size: 10.5px; letter-spacing: 0.1em;
+      color: var(--muted); font-weight: 600;
+      text-transform: uppercase; margin-bottom: 10px;
+    }
+
+    /* ── QUICK REF ── */
+    .qref-card {
+      padding: 8px 12px; border-radius: 8px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .qref-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+    .qref-name { font-size: 12px; font-weight: 700; }
+    .qref-use  { font-size: 11px; color: var(--muted); }
+
+    /* ── CHAT ── */
+    .chat-wrap { display: flex; flex-direction: column; height: 100%; }
+    .chat-header { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; flex-shrink: 0; }
+    .back-btn {
+      background: rgba(255,255,255,0.06); border: 1px solid var(--border);
+      border-radius: 8px; padding: 5px 12px; color: var(--muted);
+      cursor: pointer; font-size: 12px; font-family: inherit;
+    }
+    .chat-messages { flex: 1; overflow-y: auto; margin-bottom: 10px; }
+    .chat-empty {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      height: 100%; opacity: 0.4; gap: 8px; text-align: center;
+    }
+    .chat-empty .big-icon { font-size: 30px; }
+    .chat-empty p { font-size: 12px; color: var(--muted); }
+
+    .bubble-row { display: flex; margin-bottom: 12px; gap: 8px; align-items: flex-start; }
+    .bubble-row.user { justify-content: flex-end; }
+    .bubble-avatar {
+      width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; font-size: 12px;
+      margin-top: 2px;
+    }
+    .bubble {
+      max-width: 82%; padding: 10px 14px; font-size: 13px; line-height: 1.7;
+      white-space: pre-wrap; word-break: break-word;
+    }
+    .bubble.assistant { background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: 4px 14px 14px 14px; }
+    .bubble.user      { border-radius: 14px 14px 4px 14px; }
+
+    .chat-input-wrap {
+      flex-shrink: 0; display: flex; gap: 8px; align-items: flex-end;
+      background: rgba(255,255,255,0.04); border-radius: 12px; padding: 9px 12px;
+      border: 1px solid var(--border);
+    }
+    .chat-input-wrap textarea {
+      flex: 1; background: transparent; border: none; outline: none;
+      color: var(--text); font-size: 13px; font-family: inherit;
+      resize: none; max-height: 90px; line-height: 1.6;
+    }
+    .send-btn {
+      width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;
+      border: none; cursor: pointer; color: #fff; font-size: 15px;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s;
+    }
+    .send-btn:disabled { background: rgba(255,255,255,0.08) !important; cursor: not-allowed; }
+    .hint { text-align: center; font-size: 10.5px; color: rgba(255,255,255,0.15); margin-top: 7px; }
+
+    /* ── FORM PANEL ── */
+    .form-panel { display: flex; flex-direction: column; gap: 0; }
+    .form-title { font-size: 16px; font-weight: 700; margin-bottom: 16px; }
+    .field-label { font-size: 11px; color: var(--muted); display: block; margin-bottom: 4px; }
+    .field-wrap  { margin-bottom: 10px; }
+    .field-input, .field-textarea {
+      width: 100%; background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 9px; color: var(--text); font-size: 13px;
+      font-family: inherit; outline: none;
+    }
+    .field-textarea { resize: vertical; }
+    .exec-btn {
+      width: 100%; padding: 11px; border: none; border-radius: 10px;
+      color: #fff; font-size: 13px; font-weight: 600;
+      cursor: pointer; font-family: inherit;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .exec-btn:disabled { background: rgba(255,255,255,0.08) !important; cursor: not-allowed; }
+    .result-box {
+      margin-top: 14px; background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border); border-radius: 10px;
+      padding: 14px; max-height: 300px; overflow-y: auto;
+      font-size: 13px; line-height: 1.75; white-space: pre-wrap; word-break: break-word;
+      color: #c8d8e8;
+    }
+
+    /* ── DOTS LOADER ── */
+    .dots span {
+      display: inline-block; width: 5px; height: 5px; border-radius: 50%;
+      margin: 0 2px; animation: bounce 1.2s ease infinite;
+    }
+    .dots span:nth-child(2) { animation-delay: .2s; }
+    .dots span:nth-child(3) { animation-delay: .4s; }
+
+    /* ── SPINNER ── */
+    .spinner {
+      width: 13px; height: 13px; border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.2);
+      border-top-color: #fff;
+      animation: spin .7s linear infinite; display: inline-block;
+    }
+
+    @keyframes spin   { to { transform: rotate(360deg); } }
+    @keyframes bounce { 0%,80%,100%{transform:translateY(0)} 40%{transform:translateY(-5px)} }
+
+    ::-webkit-scrollbar { width: 3px; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+    textarea::placeholder, input::placeholder { color: rgba(255,255,255,0.2); }
+    textarea { scrollbar-width: none; }
+  </style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<div id="sidebar">
+  <span class="sidebar-label">HUB</span>
+  <button class="nav-btn active" data-section="n8n"   title="n8n">🔩</button>
+  <button class="nav-btn"        data-section="gmail" title="Gmail">✉</button>
+  <button class="nav-btn"        data-section="canva" title="Canva">🎨</button>
+  <button class="nav-btn"        data-section="ai"    title="Agente IA">🧠</button>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+  <div id="header">
+    <div class="header-icon" id="hIcon">🔩</div>
+    <div>
+      <div class="header-title" id="hTitle" style="color:var(--n8n)">n8n</div>
+      <div class="header-sub"  id="hSub">Genera workflows completos con JSON importable</div>
+    </div>
+    <div class="tab-pills">
+      <button class="tab-pill active" data-section="n8n">🔩 n8n</button>
+      <button class="tab-pill"        data-section="gmail">✉ Gmail</button>
+      <button class="tab-pill"        data-section="canva">🎨 Canva</button>
+      <button class="tab-pill"        data-section="ai">🧠 IA</button>
+    </div>
+  </div>
+
+  <div id="content">
+
+    <!-- N8N SECTION -->
+    <div class="section active" id="sec-n8n">
+      <div id="n8n-home">
+        <div class="sec-label" style="margin-bottom:12px">⚡ Nodos principales de n8n</div>
+        <div class="grid2" style="margin-bottom:22px" id="n8n-qref"></div>
+        <div class="sec-label">🔄 Plantillas de workflow</div>
+        <div class="grid2" id="n8n-templates"></div>
+      </div>
+      <div id="n8n-chat" style="display:none;height:100%"></div>
+    </div>
+
+    <!-- GMAIL SECTION -->
+    <div class="section" id="sec-gmail">
+      <div id="gmail-home">
+        <div class="sec-label">✉ Acciones disponibles</div>
+        <div class="grid2" id="gmail-actions"></div>
+      </div>
+      <div id="gmail-form" style="display:none"></div>
+    </div>
+
+    <!-- CANVA SECTION -->
+    <div class="section" id="sec-canva">
+      <div id="canva-home">
+        <div class="sec-label">🎨 Acciones disponibles</div>
+        <div class="grid2" id="canva-actions"></div>
+      </div>
+      <div id="canva-form" style="display:none"></div>
+    </div>
+
+    <!-- AI SECTION -->
+    <div class="section" id="sec-ai">
+      <div id="ai-home">
+        <div class="sec-label">🧠 Agentes especializados</div>
+        <div class="grid2" id="ai-agents"></div>
+      </div>
+      <div id="ai-chat" style="display:none;height:100%"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+// CONFIG
+// ═══════════════════════════════════════════════
+const API = '/.netlify/functions/claude';
+
+const SECTIONS_META = {
+  n8n:   { icon:'🔩', label:'n8n',       color:'#EA4B71', sub:'Genera workflows completos con JSON importable' },
+  gmail: { icon:'✉',  label:'Gmail',      color:'#EA4335', sub:'Gestiona tu Gmail con IA' },
+  canva: { icon:'🎨', label:'Canva',      color:'#7D2AE8', sub:'Controla tus diseños de Canva' },
+  ai:    { icon:'🧠', label:'Agente IA',  color:'#00C9A7', sub:'Agentes especializados con memoria' },
+};
+
+const N8N_QREF = [
+  { node:'Webhook',        use:'Recibir datos HTTP externos',     color:'#EA4B71' },
+  { node:'Schedule',       use:'Ejecutar en horario fijo (cron)', color:'#F59E0B' },
+  { node:'Gmail',          use:'Leer / enviar emails',            color:'#EA4335' },
+  { node:'HTTP Request',   use:'Llamar cualquier API REST',       color:'#3B82F6' },
+  { node:'Code',           use:'Lógica custom JS / Python',       color:'#8B5CF6' },
+  { node:'IF / Switch',    use:'Rutas condicionales',             color:'#10B981' },
+  { node:'AI Agent',       use:'Claude / OpenAI integrado',       color:'#00C9A7' },
+  { node:'Loop Over Items',use:'Iterar sobre listas',             color:'#F97316' },
+];
+
+const N8N_TEMPLATES = [
+  { icon:'📧', label:'Email → Sheets / Notion',    prompt:'Crea un workflow n8n completo que cuando llegue un email con cierto asunto, extraiga los datos y los guarde en Google Sheets o Notion. Incluye JSON importable.' },
+  { icon:'⏰', label:'Reporte diario programado',   prompt:'Crea un workflow n8n con Schedule trigger que cada día a las 8am busque emails no leídos, los resuma con IA y me envíe un reporte. Incluye JSON importable.' },
+  { icon:'🤖', label:'Chatbot IA + webhook',        prompt:'Crea un workflow n8n con Webhook trigger que reciba mensajes, los procese con Claude AI y devuelva respuesta automática. Incluye JSON importable.' },
+  { icon:'🔔', label:'Alertas por keywords',        prompt:'Crea un workflow n8n que monitorice emails y cuando detecte palabras clave urgentes envíe notificación por Telegram o Slack. Incluye JSON importable.' },
+  { icon:'📊', label:'Scraping → Spreadsheet',      prompt:'Crea un workflow n8n que haga scraping de una URL con HTTP Request, procese los datos con Code node y los guarde en Google Sheets. Incluye JSON importable.' },
+  { icon:'🔄', label:'Sync entre apps',             prompt:'Crea un workflow n8n para sincronizar datos entre dos aplicaciones: cuando se crea un registro en una, se replica en la otra. Incluye JSON importable.' },
+  { icon:'📝', label:'Formulario → CRM pipeline',  prompt:'Crea un workflow n8n que reciba datos de formulario via webhook, los valide, enriquezca con IA y los añada a HubSpot o Airtable. Incluye JSON importable.' },
+  { icon:'✨', label:'Workflow personalizado',       prompt:'' },
+];
+
+const GMAIL_ACTIONS = [
+  { id:'inbox',   icon:'📥', label:'Ver no leídos',   sub:'Últimos emails sin leer',           fields:[] },
+  { id:'search',  icon:'🔍', label:'Buscar correos',   sub:'Por remitente, asunto o keyword',   fields:[{k:'q',l:'Query Gmail',p:'from:jefe@empresa.com is:unread'}] },
+  { id:'drafts',  icon:'📝', label:'Mis borradores',   sub:'Lista de borradores guardados',     fields:[] },
+  { id:'labels',  icon:'🏷', label:'Mis etiquetas',    sub:'Etiquetas del sistema y propias',   fields:[] },
+  { id:'profile', icon:'👤', label:'Mi perfil',        sub:'Info de la cuenta Gmail',           fields:[] },
+  { id:'draft',   icon:'✍', label:'Crear borrador',   sub:'Redactar y guardar email',          fields:[{k:'to',l:'Para',p:'email@ejemplo.com'},{k:'subject',l:'Asunto',p:'Asunto del correo'},{k:'body',l:'Mensaje',p:'Escribe tu mensaje...',ml:true}] },
+  { id:'reply',   icon:'↩', label:'Responder hilo',   sub:'Responder a un thread existente',   fields:[{k:'threadId',l:'ID del hilo',p:'thread_id_aquí'},{k:'body',l:'Respuesta',p:'Tu respuesta...',ml:true}] },
+  { id:'aimail',  icon:'🤖', label:'Redactar con IA', sub:'Describe lo que quieres enviar',    fields:[{k:'prompt',l:'¿Qué quieres enviar?',p:'Email a mi cliente pidiendo reunión...',ml:true}] },
+];
+
+const CANVA_ACTIONS = [
+  { id:'search',   icon:'🔍', label:'Buscar diseños',   sub:'Entre tus diseños en Canva',        fields:[{k:'q',l:'Buscar',p:'Nombre del diseño'}] },
+  { id:'info',     icon:'ℹ',  label:'Info de diseño',   sub:'Detalles por ID',                   fields:[{k:'id',l:'ID del diseño',p:'DABCxyz1234'}] },
+  { id:'pages',    icon:'📑', label:'Ver páginas',      sub:'Slides de una presentación',        fields:[{k:'id',l:'ID del diseño',p:'DABCxyz1234'}] },
+  { id:'export',   icon:'⬇', label:'Exportar',          sub:'PDF, PNG, PPTX...',                 fields:[{k:'id',l:'ID del diseño',p:'DABCxyz1234'},{k:'fmt',l:'Formato',p:'pdf / png / pptx'}] },
+  { id:'notes',    icon:'🗒', label:'Notas ponente',    sub:'Speaker notes por slide',           fields:[{k:'id',l:'ID del diseño',p:'DABCxyz1234'}] },
+  { id:'comments', icon:'💬', label:'Comentarios',      sub:'Comentarios del diseño',            fields:[{k:'id',l:'ID del diseño',p:'DABCxyz1234'}] },
+  { id:'upload',   icon:'⬆', label:'Subir imagen',      sub:'Desde URL a Canva',                 fields:[{k:'url',l:'URL imagen',p:'https://...'},{k:'name',l:'Nombre',p:'mi-imagen'}] },
+  { id:'generate', icon:'✨', label:'Crear con IA',     sub:'Genera un diseño desde descripción',fields:[{k:'prompt',l:'¿Qué quieres crear?',p:'Poster moderno para evento tech...',ml:true}] },
+];
+
+const AI_AGENTS = [
+  { id:'email',     icon:'✉',  label:'Email',          sys:'Eres experto en comunicación profesional. Redacta emails con Asunto, Saludo, Cuerpo y Despedida claros y efectivos. Responde en español.',     ph:'Redacta un email para pedir reunión con cliente...' },
+  { id:'research',  icon:'🔬', label:'Investigación',  sys:'Eres investigador experto. Estructura: Resumen, Puntos clave, Datos, Conclusión. Sé analítico y preciso. Responde en español.',              ph:'Tendencias de IA en empresas para 2025...' },
+  { id:'docs',      icon:'📄', label:'Documentos',     sys:'Eres experto en documentos empresariales. Genera reportes, propuestas y contratos con secciones claras en Markdown. Responde en español.',   ph:'Crea una propuesta comercial para cliente de software...' },
+  { id:'content',   icon:'📢', label:'Contenido',      sys:'Eres experto en contenido digital. Adapta tono a la plataforma, incluye hashtags para redes. Responde en español.',                          ph:'5 posts para LinkedIn sobre productividad...' },
+  { id:'data',      icon:'📊', label:'Análisis',       sys:'Eres analista de negocio. Estructura: Situación, Hallazgos, Interpretación, Recomendaciones. Responde en español.',                          ph:'Mis ventas bajaron 20% este trimestre...' },
+  { id:'plan',      icon:'🗺', label:'Planificación',  sys:'Eres experto en estrategia. Genera planes con fases, hitos, responsables y métricas. Responde en español.',                                   ph:'Plan de lanzamiento de producto en 3 meses...' },
+  { id:'translate', icon:'🌍', label:'Traducción',     sys:'Eres traductor experto. Adapta idioma, tono y cultura del destino.',                                                                           ph:'Traduce este texto al inglés formal...' },
+  { id:'code',      icon:'💻', label:'Código',         sys:'Eres senior developer. Código limpio, comentado, mejores prácticas. Explica cada parte. Responde en español.',                                ph:'Script Python para automatizar X tarea...' },
+];
+
+const N8N_SYSTEM = `Eres un experto absoluto en n8n. Cuando el usuario pida un workflow, entrega SIEMPRE:
+
+## 🎯 Objetivo
+## 🔄 Flujo paso a paso (nodos numerados)
+## 🔩 JSON del workflow (listo para importar)
+\`\`\`json
+{ JSON completo y válido }
+\`\`\`
+## ⚙️ Cómo importarlo
+## 💡 Mejoras opcionales
+
+Dominas todos los nodos: Webhook, Schedule, Gmail, HTTP Request, Code, IF, Switch, Merge, Loop, AI Agent, etc.
+SIEMPRE genera el JSON completo. Responde en español.`;
+
+// ═══════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════
+let activeSection = 'n8n';
+let n8nHistory = [];
+let aiHistories = {};
+let activeAiAgent = null;
+
+// ═══════════════════════════════════════════════
+// API CALL
+// ═══════════════════════════════════════════════
+async function callClaude({ system, messages }) {
+  const res = await fetch(API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ system, messages }),
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data.content?.[0]?.text || data.reply || 'Sin respuesta.';
+}
+
+// ═══════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════
+function switchSection(id) {
+  activeSection = id;
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById('sec-' + id).classList.add('active');
+  document.querySelectorAll('.nav-btn, .tab-pill').forEach(b => {
+    b.classList.toggle('active', b.dataset.section === id);
+  });
+  const m = SECTIONS_META[id];
+  document.getElementById('hIcon').textContent  = m.icon;
+  document.getElementById('hTitle').textContent = m.label;
+  document.getElementById('hTitle').style.color = m.color;
+  document.getElementById('hSub').textContent   = m.sub;
+}
+
+document.querySelectorAll('.nav-btn, .tab-pill').forEach(b => {
+  b.addEventListener('click', () => switchSection(b.dataset.section));
+});
+
+// ═══════════════════════════════════════════════
+// CHAT BUILDER
+// ═══════════════════════════════════════════════
+function buildChat({ containerId, color, icon, placeholder, onSend, onBack }) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = `
+    <div class="chat-wrap">
+      <div class="chat-header">
+        <button class="back-btn" id="${containerId}-back">← Volver</button>
+        <div class="bubble-avatar" style="background:${color}22;border:1px solid ${color}44">${icon}</div>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:700;color:${color}" id="${containerId}-title"></div>
+          <div style="font-size:10.5px;color:var(--muted)" id="${containerId}-sub"></div>
+        </div>
+        <button class="back-btn" id="${containerId}-clear">Limpiar</button>
+      </div>
+      <div class="chat-messages" id="${containerId}-msgs">
+        <div class="chat-empty" id="${containerId}-empty">
+          <div class="big-icon">${icon}</div>
+          <p>Escribe lo que necesitas...</p>
+        </div>
+      </div>
+      <div>
+        <div class="chat-input-wrap" style="border-color:${color}33">
+          <textarea id="${containerId}-input" rows="1" placeholder="${placeholder}"></textarea>
+          <button class="send-btn" id="${containerId}-send" style="background:linear-gradient(135deg,${color},${color}bb)">↑</button>
+        </div>
+        <div class="hint">Enter para enviar · Shift+Enter nueva línea</div>
+      </div>
+    </div>`;
+
+  const msgsEl  = document.getElementById(containerId + '-msgs');
+  const emptyEl = document.getElementById(containerId + '-empty');
+  const inputEl = document.getElementById(containerId + '-input');
+  const sendEl  = document.getElementById(containerId + '-send');
+
+  document.getElementById(containerId + '-back').addEventListener('click', onBack);
+  document.getElementById(containerId + '-clear').addEventListener('click', () => {
+    msgsEl.innerHTML = ''; msgsEl.appendChild(emptyEl); onBack && 0;
+  });
+
+  function appendBubble(role, text, loading=false) {
+    if (emptyEl.parentNode === msgsEl) emptyEl.remove();
+    const row = document.createElement('div');
+    row.className = 'bubble-row' + (role==='user'?' user':'');
+    if (role==='assistant') {
+      row.innerHTML = `<div class="bubble-avatar" style="background:${color}22;border:1px solid ${color}44">${icon}</div>
+        <div class="bubble assistant">${loading ? `<span class="dots"><span style="background:${color}"></span><span style="background:${color}"></span><span style="background:${color}"></span></span>` : escHtml(text)}</div>`;
+    } else {
+      row.innerHTML = `<div class="bubble user" style="background:linear-gradient(135deg,${color}cc,${color}88)">${escHtml(text)}</div>`;
+    }
+    msgsEl.appendChild(row);
+    msgsEl.scrollTop = msgsEl.scrollHeight;
+    return row;
+  }
+
+  async function send() {
+    const text = inputEl.value.trim();
+    if (!text) return;
+    sendEl.disabled = true;
+    inputEl.value = '';
+    appendBubble('user', text);
+    const loadRow = appendBubble('assistant', '', true);
+    try {
+      const reply = await onSend(text);
+      loadRow.querySelector('.bubble').textContent = reply;
+    } catch(e) {
+      loadRow.querySelector('.bubble').textContent = '⚠️ ' + e.message;
+    }
+    sendEl.disabled = false;
+    msgsEl.scrollTop = msgsEl.scrollHeight;
+  }
+
+  sendEl.addEventListener('click', send);
+  inputEl.addEventListener('keydown', e => { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();} });
+
+  return { setTitle: (t,s) => { document.getElementById(containerId+'-title').textContent=t; document.getElementById(containerId+'-sub').textContent=s; } };
+}
+
+function escHtml(t) { return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>'); }
+
+// ═══════════════════════════════════════════════
+// N8N
+// ═══════════════════════════════════════════════
+(function initN8n() {
+  // Quick ref
+  const qrefEl = document.getElementById('n8n-qref');
+  N8N_QREF.forEach(n => {
+    const d = document.createElement('div');
+    d.className = 'qref-card';
+    d.style.background = n.color + '12';
+    d.style.border = `1px solid ${n.color}30`;
+    d.innerHTML = `<div class="qref-dot" style="background:${n.color}"></div>
+      <div><div class="qref-name" style="color:${n.color}">${n.node}</div><div class="qref-use">${n.use}</div></div>`;
+    qrefEl.appendChild(d);
+  });
+
+  // Templates
+  const tplEl = document.getElementById('n8n-templates');
+  N8N_TEMPLATES.forEach(t => {
+    const b = document.createElement('button');
+    b.className = 'action-card';
+    b.innerHTML = `<div class="card-title">${t.icon} ${t.label}</div>`;
+    b.addEventListener('click', () => startN8nChat(t));
+    tplEl.appendChild(b);
+  });
+
+  function startN8nChat(tpl) {
+    document.getElementById('n8n-home').style.display = 'none';
+    const chatEl = document.getElementById('n8n-chat');
+    chatEl.style.display = 'block';
+    const { setTitle } = buildChat({
+      containerId: 'n8n-chat',
+      color: '#EA4B71', icon: '🔩',
+      placeholder: 'Ej: Crea un workflow que automatice mis reportes semanales...',
+      onBack: () => { chatEl.style.display='none'; document.getElementById('n8n-home').style.display='block'; n8nHistory=[]; },
+      onSend: async (text) => {
+        n8nHistory.push({ role:'user', content: text });
+        const reply = await callClaude({ system: N8N_SYSTEM, messages: n8nHistory });
+        n8nHistory.push({ role:'assistant', content: reply });
+        return reply;
+      },
+    });
+    setTitle('Agente n8n', 'Genera workflows con JSON listo para importar');
+    if (tpl.prompt) {
+      setTimeout(() => {
+        document.getElementById('n8n-chat-input').value = tpl.prompt;
+        document.getElementById('n8n-chat-send').click();
+      }, 80);
+    }
+  }
+})();
+
+// ═══════════════════════════════════════════════
+// GMAIL
+// ═══════════════════════════════════════════════
+(function initGmail() {
+  const el = document.getElementById('gmail-actions');
+  GMAIL_ACTIONS.forEach(a => {
+    const b = document.createElement('button');
+    b.className = 'action-card';
+    b.innerHTML = `<div class="card-title">${a.icon} ${a.label}</div><div class="card-sub">${a.sub}</div>`;
+    b.addEventListener('click', () => showGmailForm(a));
+    el.appendChild(b);
+  });
+
+  function showGmailForm(action) {
+    document.getElementById('gmail-home').style.display = 'none';
+    const formEl = document.getElementById('gmail-form');
+    formEl.style.display = 'block';
+    formEl.innerHTML = `
+      <button class="back-btn" id="gmail-back" style="margin-bottom:14px">← Volver</button>
+      <div class="form-title" style="color:var(--gmail)">${action.icon} ${action.label}</div>
+      ${action.fields.map(f => `
+        <div class="field-wrap">
+          <label class="field-label">${f.l}</label>
+          ${f.ml
+            ? `<textarea class="field-textarea" id="gf-${f.k}" rows="3" placeholder="${f.p}"></textarea>`
+            : `<input class="field-input" id="gf-${f.k}" type="text" placeholder="${f.p}" />`}
+        </div>`).join('')}
+      <button class="exec-btn" id="gmail-exec" style="background:linear-gradient(135deg,var(--gmail),#c0392b)">${action.icon} ${action.label}</button>
+      <div id="gmail-result" style="display:none" class="result-box"></div>`;
+
+    document.getElementById('gmail-back').addEventListener('click', () => {
+      formEl.style.display = 'none'; document.getElementById('gmail-home').style.display = 'block';
+    });
+
+    document.getElementById('gmail-exec').addEventListener('click', async () => {
+      const btn = document.getElementById('gmail-exec');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Ejecutando...';
+      const fields = {};
+      action.fields.forEach(f => { fields[f.k] = document.getElementById('gf-'+f.k)?.value || ''; });
+      const prompts = {
+        inbox:   'Usa gmail_search_messages con query "is:unread" maxResults 10. Lista: remitente, asunto y fecha.',
+        search:  `Busca emails con query "${fields.q}". Usa gmail_search_messages. Lista: remitente, asunto, fecha.`,
+        drafts:  'Usa gmail_list_drafts. Muestra: destinatario, asunto de cada borrador.',
+        labels:  'Usa gmail_list_labels. Separa etiquetas del sistema vs las del usuario.',
+        profile: 'Usa gmail_get_profile. Muestra: email, total mensajes y threads.',
+        draft:   `Crea borrador con gmail_create_draft: to="${fields.to}", subject="${fields.subject}", body="${fields.body}".`,
+        reply:   `Crea borrador de respuesta al hilo ${fields.threadId}: body="${fields.body}". Usa gmail_create_draft con threadId.`,
+        aimail:  `El usuario describe: "${fields.prompt}". Redacta un email profesional y crea el borrador con gmail_create_draft.`,
+      };
+      try {
+        const reply = await callClaude({ system: 'Eres asistente con acceso a Gmail. Ejecuta la acción y muestra resultados claros en español.', messages: [{ role:'user', content: prompts[action.id] }] });
+        const r = document.getElementById('gmail-result');
+        r.style.display = 'block'; r.textContent = reply;
+      } catch(e) {
+        const r = document.getElementById('gmail-result');
+        r.style.display = 'block'; r.textContent = '⚠️ ' + e.message;
+      }
+      btn.disabled = false; btn.innerHTML = `${action.icon} ${action.label}`;
+    });
+  }
+})();
+
+// ═══════════════════════════════════════════════
+// CANVA
+// ═══════════════════════════════════════════════
+(function initCanva() {
+  const el = document.getElementById('canva-actions');
+  CANVA_ACTIONS.forEach(a => {
+    const b = document.createElement('button');
+    b.className = 'action-card';
+    b.innerHTML = `<div class="card-title">${a.icon} ${a.label}</div><div class="card-sub">${a.sub}</div>`;
+    b.addEventListener('click', () => showCanvaForm(a));
+    el.appendChild(b);
+  });
+
+  function showCanvaForm(action) {
+    document.getElementById('canva-home').style.display = 'none';
+    const formEl = document.getElementById('canva-form');
+    formEl.style.display = 'block';
+    formEl.innerHTML = `
+      <button class="back-btn" id="canva-back" style="margin-bottom:14px">← Volver</button>
+      <div class="form-title" style="color:var(--canva)">${action.icon} ${action.label}</div>
+      ${action.fields.map(f => `
+        <div class="field-wrap">
+          <label class="field-label">${f.l}</label>
+          ${f.ml
+            ? `<textarea class="field-textarea" id="cf-${f.k}" rows="3" placeholder="${f.p}"></textarea>`
+            : `<input class="field-input" id="cf-${f.k}" type="text" placeholder="${f.p}" />`}
+        </div>`).join('')}
+      <button class="exec-btn" id="canva-exec" style="background:linear-gradient(135deg,var(--canva),#6a1fd1)">${action.icon} ${action.label}</button>
+      <div id="canva-result" style="display:none" class="result-box"></div>`;
+
+    document.getElementById('canva-back').addEventListener('click', () => {
+      formEl.style.display = 'none'; document.getElementById('canva-home').style.display = 'block';
+    });
+
+    document.getElementById('canva-exec').addEventListener('click', async () => {
+      const btn = document.getElementById('canva-exec');
+      btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Ejecutando...';
+      const fields = {};
+      action.fields.forEach(f => { fields[f.k] = document.getElementById('cf-'+f.k)?.value || ''; });
+      const prompts = {
+        search:   `Busca diseños en Canva con "${fields.q}" usando search-designs. Muestra: título, tipo, URL.`,
+        info:     `Obtén info del diseño "${fields.id}" con get-design. Muestra: título, tipo, páginas, URL.`,
+        pages:    `Lista páginas del diseño "${fields.id}" con get-design-pages.`,
+        export:   `Exporta diseño "${fields.id}" en formato "${fields.fmt||'pdf'}". Usa get-export-formats primero, luego export-design. Da el link.`,
+        notes:    `Obtén notas del ponente del diseño "${fields.id}" con get-presenter-notes.`,
+        comments: `Lista comentarios del diseño "${fields.id}" con list-comments.`,
+        upload:   `Sube imagen desde "${fields.url}" con nombre "${fields.name}" usando upload-asset-from-url.`,
+        generate: `Crea un diseño en Canva: "${fields.prompt}". Usa generate-design. Da el link al resultado.`,
+      };
+      try {
+        const reply = await callClaude({ system: 'Eres asistente con acceso a Canva. Ejecuta la acción y muestra resultados claros en español.', messages: [{ role:'user', content: prompts[action.id] }] });
+        const r = document.getElementById('canva-result');
+        r.style.display = 'block'; r.textContent = reply;
+      } catch(e) {
+        const r = document.getElementById('canva-result');
+        r.style.display = 'block'; r.textContent = '⚠️ ' + e.message;
+      }
+      btn.disabled = false; btn.innerHTML = `${action.icon} ${action.label}`;
+    });
+  }
+})();
+
+// ═══════════════════════════════════════════════
+// AI AGENTS
+// ═══════════════════════════════════════════════
+(function initAI() {
+  const el = document.getElementById('ai-agents');
+  AI_AGENTS.forEach(a => {
+    const b = document.createElement('button');
+    b.className = 'action-card';
+    b.id = 'ai-card-' + a.id;
+    b.innerHTML = `<div class="card-title">${a.icon} ${a.label}</div><div class="card-sub">${a.ph}</div>`;
+    b.addEventListener('click', () => startAiChat(a));
+    el.appendChild(b);
+  });
+
+  function startAiChat(agent) {
+    activeAiAgent = agent;
+    if (!aiHistories[agent.id]) aiHistories[agent.id] = [];
+    document.getElementById('ai-home').style.display = 'none';
+    const chatEl = document.getElementById('ai-chat');
+    chatEl.style.display = 'block';
+    const { setTitle } = buildChat({
+      containerId: 'ai-chat',
+      color: '#00C9A7', icon: agent.icon,
+      placeholder: agent.ph,
+      onBack: () => { chatEl.style.display='none'; document.getElementById('ai-home').style.display='block'; },
+      onSend: async (text) => {
+        aiHistories[agent.id].push({ role:'user', content: text });
+        const reply = await callClaude({ system: agent.sys, messages: aiHistories[agent.id] });
+        aiHistories[agent.id].push({ role:'assistant', content: reply });
+        return reply;
+      },
+    });
+    setTitle('Agente ' + agent.label, agent.ph);
+  }
+})();
+</script>
+</body>
+</html>
