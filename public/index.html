@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SuperAgent — Multi-LLM Orchestrator</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #080b0f;
+    --surface: #0e1318;
+    --surface2: #141a22;
+    --border: #1e2830;
+    --accent-c: #00d4ff;
+    --accent-g: #7affb2;
+    --accent-gpt: #ff9f45;
+    --accent-o: #c084fc;
+    --accent-synth: #f0f0f0;
+    --text: #e8edf2;
+    --muted: #5a6a7a;
+    --font-head: 'Syne', sans-serif;
+    --font-mono: 'Space Mono', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: var(--font-mono); min-height: 100vh; overflow-x: hidden;
+  }
+  body::before {
+    content: ''; position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px; pointer-events: none; z-index: 0;
+  }
+  header {
+    position: relative; z-index: 10;
+    padding: 20px 32px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    backdrop-filter: blur(8px); background: rgba(8,11,15,0.8);
+  }
+  .logo { font-family: var(--font-head); font-size: 22px; font-weight: 800; }
+  .logo span { color: var(--accent-c); }
+  .models-bar { display: flex; gap: 10px; align-items: center; }
+  .model-badge {
+    font-size: 10px; padding: 4px 10px; border-radius: 100px;
+    font-family: var(--font-mono); font-weight: 700; letter-spacing: 0.5px;
+    border: 1px solid; display: flex; align-items: center; gap: 5px;
+    cursor: pointer; transition: all 0.2s; user-select: none;
+  }
+  .model-badge:hover { transform: translateY(-1px); }
+  .model-badge.claude  { color: var(--accent-c);   border-color: var(--accent-c);   background: rgba(0,212,255,0.08); }
+  .model-badge.gemini  { color: var(--accent-g);   border-color: var(--accent-g);   background: rgba(122,255,178,0.08); }
+  .model-badge.gpt     { color: var(--accent-gpt); border-color: var(--accent-gpt); background: rgba(255,159,69,0.08); }
+  .model-badge.other   { color: var(--accent-o);   border-color: var(--accent-o);   background: rgba(192,132,252,0.08); }
+  .model-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: pulse 2s infinite; }
+  .model-badge.off { opacity: 0.3; filter: grayscale(1); }
+  .model-badge.off .dot { animation: none; }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(.8)} }
+  .app {
+    position: relative; z-index: 1;
+    display: grid; grid-template-columns: 280px 1fr;
+    height: calc(100vh - 65px);
+  }
+  .sidebar {
+    border-right: 1px solid var(--border); padding: 20px;
+    overflow-y: auto; background: var(--surface);
+    display: flex; flex-direction: column; gap: 20px;
+  }
+  .sidebar-section h3 {
+    font-family: var(--font-head); font-size: 10px; font-weight: 700;
+    letter-spacing: 2px; color: var(--muted); text-transform: uppercase; margin-bottom: 10px;
+  }
+  .mode-btn {
+    width: 100%; padding: 10px 12px; background: transparent;
+    border: 1px solid var(--border); border-radius: 8px;
+    color: var(--text); font-family: var(--font-mono); font-size: 11px;
+    text-align: left; cursor: pointer; margin-bottom: 6px;
+    transition: all 0.2s; display: flex; align-items: flex-start; gap: 10px;
+  }
+  .mode-btn:hover { border-color: var(--accent-c); background: rgba(0,212,255,0.04); }
+  .mode-btn.active { border-color: var(--accent-c); background: rgba(0,212,255,0.08); color: var(--accent-c); }
+  .mode-btn .mode-icon { font-size: 16px; flex-shrink: 0; }
+  .mode-btn .mode-info { display: flex; flex-direction: column; gap: 2px; }
+  .mode-btn .mode-name { font-weight: 700; font-size: 12px; }
+  .mode-btn .mode-desc { font-size: 9px; color: var(--muted); line-height: 1.4; }
+  .mode-btn.active .mode-desc { color: rgba(0,212,255,0.6); }
+  .example-btn {
+    width: 100%; padding: 8px 10px; background: var(--surface2);
+    border: 1px solid var(--border); border-radius: 6px; color: var(--muted);
+    font-family: var(--font-mono); font-size: 10px; text-align: left;
+    cursor: pointer; margin-bottom: 4px; transition: all 0.2s;
+  }
+  .example-btn:hover { color: var(--text); border-color: var(--muted); }
+  .main { display: flex; flex-direction: column; overflow: hidden; }
+  .chat-area {
+    flex: 1; overflow-y: auto; padding: 24px 32px;
+    display: flex; flex-direction: column; gap: 24px;
+  }
+  .welcome { text-align: center; padding: 60px 20px; opacity: 0.6; }
+  .welcome h2 {
+    font-family: var(--font-head); font-size: 28px; font-weight: 800; margin-bottom: 12px;
+    background: linear-gradient(135deg, var(--accent-c), var(--accent-g));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .welcome p { font-size: 12px; color: var(--muted); line-height: 1.8; }
+  .msg { display: flex; flex-direction: column; gap: 8px; animation: msgIn 0.3s ease; }
+  @keyframes msgIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+  .msg-user {
+    align-self: flex-end; max-width: 70%;
+    background: rgba(0,212,255,0.1); border: 1px solid rgba(0,212,255,0.2);
+    border-radius: 16px 16px 4px 16px; padding: 12px 16px;
+    font-size: 13px; line-height: 1.6; color: var(--text);
+  }
+  .msg-orchestrator {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+  }
+  .orch-header {
+    padding: 10px 14px; background: rgba(0,212,255,0.05);
+    border-bottom: 1px solid var(--border); font-size: 10px; color: var(--accent-c);
+    font-weight: 700; letter-spacing: 1px; display: flex; align-items: center; gap: 8px;
+  }
+  .orch-body { padding: 14px; font-size: 12px; color: var(--muted); line-height: 1.7; }
+  .responses-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(260px,1fr)); gap: 12px; margin-top: 4px; }
+  .model-response { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; transition: border-color 0.2s; }
+  .model-response:hover { border-color: var(--muted); }
+  .mr-header { padding: 8px 12px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border); font-size: 11px; font-weight: 700; }
+  .mr-header .mr-icon { font-size: 14px; }
+  .mr-header .mr-name { flex: 1; }
+  .mr-header .mr-status { font-size: 9px; opacity: 0.6; }
+  .mr-body { padding: 12px; font-size: 11px; line-height: 1.7; color: #b0bec5; min-height: 60px; white-space: pre-wrap; }
+  .model-response.claude  .mr-header { color: var(--accent-c);   background: rgba(0,212,255,0.05); }
+  .model-response.gemini  .mr-header { color: var(--accent-g);   background: rgba(122,255,178,0.05); }
+  .model-response.gpt     .mr-header { color: var(--accent-gpt); background: rgba(255,159,69,0.05); }
+  .model-response.other   .mr-header { color: var(--accent-o);   background: rgba(192,132,252,0.05); }
+  .synthesis-card { background: var(--surface2); border: 1px solid rgba(240,240,240,0.15); border-radius: 10px; overflow: hidden; margin-top: 4px; }
+  .synth-header {
+    padding: 10px 14px; background: rgba(240,240,240,0.04);
+    border-bottom: 1px solid rgba(240,240,240,0.08); font-size: 11px; font-weight: 700;
+    color: var(--accent-synth); display: flex; align-items: center; gap: 8px; letter-spacing: 0.5px;
+  }
+  .synth-body { padding: 16px; font-size: 13px; line-height: 1.8; color: var(--text); white-space: pre-wrap; }
+  .typing { display: flex; gap: 4px; padding: 8px 0; }
+  .typing span { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); animation: bounce 1.2s infinite; }
+  .typing span:nth-child(2) { animation-delay: 0.2s; }
+  .typing span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes bounce { 0%,60%,100%{transform:translateY(0);opacity:.4} 30%{transform:translateY(-6px);opacity:1} }
+  .input-area { padding: 16px 32px 24px; border-top: 1px solid var(--border); background: var(--surface); }
+  .input-row { display: flex; gap: 10px; align-items: flex-end; }
+  .input-wrap {
+    flex: 1; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 12px; padding: 12px 16px; transition: border-color 0.2s;
+  }
+  .input-wrap:focus-within { border-color: var(--accent-c); }
+  #user-input {
+    width: 100%; background: transparent; border: none; outline: none;
+    color: var(--text); font-family: var(--font-mono); font-size: 13px;
+    line-height: 1.6; resize: none; max-height: 120px;
+  }
+  #user-input::placeholder { color: var(--muted); }
+  .send-btn {
+    padding: 12px 20px; background: var(--accent-c); color: #080b0f;
+    border: none; border-radius: 10px; font-family: var(--font-head);
+    font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s;
+  }
+  .send-btn:hover { background: #33dcff; transform: translateY(-1px); }
+  .send-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+  .input-hint { font-size: 10px; color: var(--muted); margin-top: 6px; text-align: center; }
+  .mode-tag {
+    display: inline-flex; align-items: center; gap: 5px; font-size: 9px;
+    padding: 3px 8px; border-radius: 100px; background: rgba(0,212,255,0.1);
+    color: var(--accent-c); border: 1px solid rgba(0,212,255,0.2);
+    font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;
+  }
+  .error-msg {
+    background: rgba(255,80,80,0.08); border: 1px solid rgba(255,80,80,0.2);
+    border-radius: 8px; padding: 12px 16px; font-size: 12px; color: #ff8080;
+  }
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Super<span>Agent</span></div>
+  <div class="models-bar">
+    <div class="model-badge claude" id="badge-claude">
+      <div class="dot"></div> CLAUDE
+    </div>
+    <div class="model-badge gemini" id="badge-gemini" onclick="toggleModel('gemini')">
+      <div class="dot"></div> GEMINI
+    </div>
+    <div class="model-badge gpt" id="badge-gpt" onclick="toggleModel('gpt')">
+      <div class="dot"></div> GPT-4
+    </div>
+    <div class="model-badge other" id="badge-other" onclick="toggleModel('other')">
+      <div class="dot"></div> MISTRAL
+    </div>
+  </div>
+</header>
+
+<div class="app">
+  <div class="sidebar">
+    <div class="sidebar-section">
+      <h3>Modo de Operación</h3>
+      <button class="mode-btn active" id="mode-router" onclick="setMode('router')">
+        <span class="mode-icon">🔀</span>
+        <span class="mode-info">
+          <span class="mode-name">Router</span>
+          <span class="mode-desc">Elige el mejor modelo según la tarea</span>
+        </span>
+      </button>
+      <button class="mode-btn" id="mode-ensemble" onclick="setMode('ensemble')">
+        <span class="mode-icon">🎻</span>
+        <span class="mode-info">
+          <span class="mode-name">Ensemble</span>
+          <span class="mode-desc">Todos responden, Claude sintetiza lo mejor</span>
+        </span>
+      </button>
+      <button class="mode-btn" id="mode-debate" onclick="setMode('debate')">
+        <span class="mode-icon">⚔️</span>
+        <span class="mode-info">
+          <span class="mode-name">Debate</span>
+          <span class="mode-desc">Los modelos se critican entre sí</span>
+        </span>
+      </button>
+      <button class="mode-btn" id="mode-pipeline" onclick="setMode('pipeline')">
+        <span class="mode-icon">🔗</span>
+        <span class="mode-info">
+          <span class="mode-name">Pipeline</span>
+          <span class="mode-desc">Cada modelo enriquece al anterior</span>
+        </span>
+      </button>
+    </div>
+    <div class="sidebar-section">
+      <h3>Ejemplos</h3>
+      <button class="example-btn" onclick="fillExample('Explícame qué es la computación cuántica como si fuera un chef')">🍳 Analogía creativa</button>
+      <button class="example-btn" onclick="fillExample('¿Cuál es la mejor estrategia para aprender programación desde cero en 2025?')">💻 Plan de aprendizaje</button>
+      <button class="example-btn" onclick="fillExample('Escribe un poema sobre la inteligencia artificial con metáforas del cosmos')">🌌 Creación literaria</button>
+      <button class="example-btn" onclick="fillExample('¿Cuáles son los argumentos a favor y en contra del ingreso universal básico?')">⚖️ Debate filosófico</button>
+      <button class="example-btn" onclick="fillExample('Dame 5 ideas de startup disruptivas para España en 2025')">🚀 Ideas de negocio</button>
+      <button class="example-btn" onclick="fillExample('Explica cómo funciona un algoritmo de búsqueda binaria con un ejemplo')">🐍 Código + explicación</button>
+    </div>
+    <div class="sidebar-section">
+      <h3>Estado</h3>
+      <div style="font-size:10px;color:var(--muted);line-height:2">
+        🟢 Backend: <span style="color:var(--accent-g)">Netlify Functions</span><br>
+        🔒 API Key: <span style="color:var(--accent-g)">Protegida</span><br>
+        🤖 Modo: <span id="status-mode" style="color:var(--accent-c)">ROUTER</span><br>
+        💬 Consultas: <span id="status-convos" style="color:var(--text)">0</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="chat-area" id="chatArea">
+      <div class="welcome" id="welcome">
+        <h2>SuperAgent Listo</h2>
+        <p>
+          Tu API key está segura en el servidor.<br>
+          Elige un modo y envía tu consulta.
+        </p>
+      </div>
+    </div>
+    <div class="input-area">
+      <div class="input-row">
+        <div class="input-wrap">
+          <textarea id="user-input" rows="2" placeholder="Escribe tu pregunta o tarea..."></textarea>
+        </div>
+        <button class="send-btn" id="sendBtn" onclick="sendMessage()">Enviar →</button>
+      </div>
+      <div class="input-hint">Ctrl+Enter para enviar</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────
+let currentMode = 'router';
+let conversationCount = 0;
+let activeModels = { claude: true, gemini: true, gpt: true, other: true };
+
+// ── La llamada va al backend de Netlify, no a Anthropic directo ──
+async function callBackend(system, userMsg) {
+  const res = await fetch('/api/claude', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 800,
+      system,
+      messages: [{ role: 'user', content: userMsg }]
+    })
+  });
+  if (!res.ok) throw new Error(`Error ${res.status}: ${await res.text()}`);
+  const data = await res.json();
+  return data.content[0].text;
+}
+
+// ── UI helpers ─────────────────────────────────────────────────
+function toggleModel(model) {
+  activeModels[model] = !activeModels[model];
+  document.getElementById(`badge-${model}`).classList.toggle('off', !activeModels[model]);
+}
+function setMode(mode) {
+  currentMode = mode;
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`mode-${mode}`).classList.add('active');
+  document.getElementById('status-mode').textContent = mode.toUpperCase();
+}
+function fillExample(text) {
+  document.getElementById('user-input').value = text;
+  document.getElementById('user-input').focus();
+}
+function escapeHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+function scrollBottom(el) { requestAnimationFrame(() => el.scrollTop = el.scrollHeight); }
+
+async function typeText(el, text, speed = 10) {
+  el.textContent = '';
+  for (const ch of text.split('')) {
+    el.textContent += ch;
+    if (ch === '\n' || Math.random() < 0.08) await sleep(speed);
+  }
+  return text;
+}
+
+function addOrchestratorCard(parent) {
+  const div = document.createElement('div');
+  div.className = 'msg msg-orchestrator';
+  div.innerHTML = `
+    <div class="orch-header">⚡ ORQUESTADOR <span class="mode-tag">${currentMode.toUpperCase()}</span></div>
+    <div class="orch-body"><div class="typing"><span></span><span></span><span></span></div></div>`;
+  parent.appendChild(div);
+  return div;
+}
+
+function createModelCard(parent, modelKey, status) {
+  const icons = { claude:'◆', gemini:'◈', gpt:'◉', other:'◎' };
+  const names = { claude:'Claude 3.5', gemini:'Gemini Pro', gpt:'GPT-4o', other:'Mistral' };
+  const div = document.createElement('div');
+  div.className = `model-response ${modelKey}`;
+  div.innerHTML = `
+    <div class="mr-header">
+      <span class="mr-icon">${icons[modelKey]}</span>
+      <span class="mr-name">${names[modelKey]}</span>
+      <span class="mr-status">${status}</span>
+    </div>
+    <div class="mr-body"><div class="typing"><span></span><span></span><span></span></div></div>`;
+  parent.appendChild(div);
+  return div;
+}
+
+function createSynthCard(parent, title = '✦ SÍNTESIS FINAL') {
+  const div = document.createElement('div');
+  div.className = 'synthesis-card';
+  div.innerHTML = `<div class="synth-header">${title}</div><div class="synth-body"></div>`;
+  parent.appendChild(div);
+  return div;
+}
+
+// ── Simulación de modelos no-Claude ───────────────────────────
+function getSimResponse(model, text, ctx) {
+  const t = text.slice(0, 50);
+  const bank = {
+    gemini: [
+      `Basándome en datos a gran escala sobre "${t}...", identifico patrones relevantes. El enfoque más efectivo integra múltiples fuentes y considera el contexto ampliado para maximizar precisión.`,
+      `Mi análisis multimodal de "${t}..." sugiere que la clave está en la escala y diversidad de perspectivas. Google ha investigado extensamente este dominio con conclusiones interesantes.`
+    ],
+    gpt: [
+      `Para "${t}...", un enfoque estructurado:\n1. Contexto y antecedentes clave\n2. Opciones con pros/contras\n3. Recomendación basada en mejores prácticas\n\nEl factor crítico es la coherencia entre objetivos a corto y largo plazo.`,
+      `Sobre "${t}...", las mejores prácticas indican: iterar rápido, medir resultados concretos y ajustar con datos reales antes que suposiciones teóricas.`
+    ],
+    mistral: [
+      `Desde perspectiva eficiente sobre "${t}...": las soluciones más robustas suelen ser las más directas. Evitar sobre-ingeniería y priorizar claridad conceptual es la clave diferenciadora.`,
+      `Analizando "${t}..." con arquitectura open-source: la transparencia y eficiencia computacional permiten soluciones elegantes sin infraestructura compleja.`
+    ]
+  };
+  const arr = bank[model] || bank['gemini'];
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+async function simulateModel(modelKey, text, targetEl, ctx = 'general') {
+  targetEl.innerHTML = '<div class="typing"><span></span><span></span><span></span></div>';
+  await sleep(900 + Math.random() * 1100);
+  const label = modelKey === 'other' ? 'mistral' : modelKey;
+  const resp = getSimResponse(label, text, ctx);
+  await typeText(targetEl, resp);
+  return resp;
+}
+
+// ── Modos ──────────────────────────────────────────────────────
+async function runRouter(chat, text) {
+  const grid = document.createElement('div');
+  grid.className = 'responses-grid';
+  chat.appendChild(grid);
+
+  let chosen = 'claude';
+  try {
+    const decision = await callBackend(
+      'Eres un router de LLMs. Responde SOLO con una palabra: claude, gpt, gemini o mistral.',
+      `¿Qué modelo es mejor para: "${text}"?`
+    );
+    const d = decision.toLowerCase().trim();
+    if (['claude','gpt','gemini','mistral'].includes(d)) chosen = d;
+  } catch(e) { chosen = 'claude'; }
+
+  const modelKey = chosen === 'mistral' ? 'other' : chosen;
+  if (!activeModels[modelKey]) chosen = 'claude';
+
+  const card = createModelCard(grid, modelKey === 'other' ? 'other' : chosen, `Enrutado a ${chosen.toUpperCase()}`);
+  scrollBottom(chat);
+
+  let response = '';
+  if (chosen === 'claude') {
+    card.querySelector('.mr-body').innerHTML = '<div class="typing"><span></span><span></span><span></span></div>';
+    try {
+      response = await callBackend('Eres un asistente experto. Responde de forma clara, útil y completa.', text);
+      await typeText(card.querySelector('.mr-body'), response);
+    } catch(e) {
+      card.querySelector('.mr-body').textContent = `Error: ${e.message}`;
+    }
+  } else {
+    response = await simulateModel(modelKey, text, card.querySelector('.mr-body'));
+  }
+
+  const synth = createSynthCard(chat);
+  scrollBottom(chat);
+  try {
+    const s = await callBackend(
+      'Eres el orquestador final. Presenta y complementa la respuesta de forma clara y útil.',
+      `Tarea: "${text}"\n\nRespuesta de ${chosen}: "${response}"\n\nComplementa y presenta la respuesta final.`
+    );
+    await typeText(synth.querySelector('.synth-body'), s);
+  } catch(e) {
+    synth.querySelector('.synth-body').textContent = response;
+  }
+}
+
+async function runEnsemble(chat, text) {
+  const grid = document.createElement('div');
+  grid.className = 'responses-grid';
+  chat.appendChild(grid);
+
+  const models = [
+    { key: 'claude', real: true },
+    activeModels.gemini ? { key: 'gemini', real: false } : null,
+    activeModels.gpt    ? { key: 'gpt',    real: false } : null,
+    activeModels.other  ? { key: 'other',  real: false } : null,
+  ].filter(Boolean);
+
+  const cards = {};
+  models.forEach(m => { cards[m.key] = createModelCard(grid, m.key, 'Procesando...'); });
+  scrollBottom(chat);
+
+  const responses = {};
+  await Promise.all(models.map(async m => {
+    const el = cards[m.key].querySelector('.mr-body');
+    if (m.real) {
+      try {
+        responses[m.key] = await callBackend('Responde de forma directa, útil y completa.', text);
+        await typeText(el, responses[m.key]);
+      } catch(e) {
+        el.textContent = `Error: ${e.message}`;
+        responses[m.key] = '';
+      }
+    } else {
+      responses[m.key] = await simulateModel(m.key, text, el);
+    }
+  }));
+
+  const synth = createSynthCard(chat);
+  scrollBottom(chat);
+  const allResp = Object.entries(responses).map(([k,v]) => `[${k.toUpperCase()}]: ${v}`).join('\n\n');
+  try {
+    const s = await callBackend(
+      'Eres el sintetizador de un ensemble de LLMs. Crea la mejor respuesta combinando lo mejor de cada modelo.',
+      `Tarea: "${text}"\n\nRespuestas:\n${allResp}\n\nCrea una síntesis superior.`
+    );
+    await typeText(synth.querySelector('.synth-body'), s);
+  } catch(e) {
+    synth.querySelector('.synth-body').textContent = 'Error en síntesis: ' + e.message;
+  }
+}
+
+async function runDebate(chat, text) {
+  const g1 = document.createElement('div'); g1.className = 'responses-grid'; chat.appendChild(g1);
+  const c1 = createModelCard(g1, 'claude', 'Ronda 1 — Posición inicial');
+  const g1b = createModelCard(g1, 'gemini', 'Ronda 1 — Posición inicial');
+  scrollBottom(chat);
+
+  let claudeR1 = '';
+  try {
+    claudeR1 = await callBackend('Presenta una posición clara y bien argumentada.', text);
+    await typeText(c1.querySelector('.mr-body'), claudeR1);
+  } catch(e) { c1.querySelector('.mr-body').textContent = 'Error: ' + e.message; }
+  const geminiR1 = await simulateModel('gemini', text, g1b.querySelector('.mr-body'));
+
+  const g2 = document.createElement('div'); g2.className = 'responses-grid'; chat.appendChild(g2);
+  const c2 = createModelCard(g2, 'claude', 'Ronda 2 — Réplica');
+  const arb = createModelCard(g2, 'gpt', 'Árbitro');
+  scrollBottom(chat);
+
+  let claudeR2 = '';
+  try {
+    claudeR2 = await callBackend(
+      'Estás en un debate. Analiza la posición contraria y refina tu argumento.',
+      `Tu posición: "${claudeR1}"\nPosición contraria (Gemini): "${geminiR1}"\nRefina tu argumento.`
+    );
+    await typeText(c2.querySelector('.mr-body'), claudeR2);
+  } catch(e) { c2.querySelector('.mr-body').textContent = 'Error: ' + e.message; }
+  const gptArb = await simulateModel('gpt', `${claudeR1}|${geminiR1}`, arb.querySelector('.mr-body'), 'referee');
+
+  const synth = createSynthCard(chat, '⚔️ Veredicto Final');
+  scrollBottom(chat);
+  try {
+    const v = await callBackend(
+      'Eres el juez de un debate. Emite un veredicto equilibrado y enriquecedor.',
+      `Tema: "${text}"\nClaude R1: ${claudeR1}\nGemini R1: ${geminiR1}\nClaude R2: ${claudeR2}\nÁrbitro GPT: ${gptArb}\n\nEmite el veredicto final.`
+    );
+    await typeText(synth.querySelector('.synth-body'), v);
+  } catch(e) { synth.querySelector('.synth-body').textContent = 'Error: ' + e.message; }
+}
+
+async function runPipeline(chat, text) {
+  // Paso 1: Gemini - investigación
+  const g1 = document.createElement('div'); g1.className = 'responses-grid'; chat.appendChild(g1);
+  const p1 = createModelCard(g1, 'gemini', 'Paso 1 — Investigación');
+  scrollBottom(chat);
+  const step1 = await simulateModel('gemini', text, p1.querySelector('.mr-body'), 'research');
+
+  // Paso 2: Claude - análisis
+  const g2 = document.createElement('div'); g2.className = 'responses-grid'; chat.appendChild(g2);
+  const p2 = createModelCard(g2, 'claude', 'Paso 2 — Análisis y estructura');
+  scrollBottom(chat);
+  let step2 = '';
+  try {
+    step2 = await callBackend(
+      'Recibes investigación previa y debes estructurarla y analizarla en profundidad.',
+      `Investigación recibida: "${step1}"\n\nTarea original: "${text}"\n\nEstructura y analiza.`
+    );
+    await typeText(p2.querySelector('.mr-body'), step2);
+  } catch(e) { p2.querySelector('.mr-body').textContent = 'Error: ' + e.message; step2 = step1; }
+
+  // Paso 3: GPT - refinamiento
+  const g3 = document.createElement('div'); g3.className = 'responses-grid'; chat.appendChild(g3);
+  const p3 = createModelCard(g3, 'gpt', 'Paso 3 — Refinamiento final');
+  scrollBottom(chat);
+  const step3 = await simulateModel('gpt', step2, p3.querySelector('.mr-body'), 'polish');
+
+  const synth = createSynthCard(chat, '🔗 Output del Pipeline');
+  await typeText(synth.querySelector('.synth-body'), step3);
+}
+
+// ── Send ───────────────────────────────────────────────────────
+async function sendMessage() {
+  const input = document.getElementById('user-input');
+  const text = input.value.trim();
+  if (!text || document.getElementById('sendBtn').disabled) return;
+
+  document.getElementById('welcome')?.remove();
+  input.value = '';
+  conversationCount++;
+  document.getElementById('status-convos').textContent = conversationCount;
+
+  const chat = document.getElementById('chatArea');
+  const userMsg = document.createElement('div');
+  userMsg.className = 'msg';
+  userMsg.innerHTML = `<div class="msg-user">${escapeHtml(text)}</div>`;
+  chat.appendChild(userMsg);
+  document.getElementById('sendBtn').disabled = true;
+
+  // Orchestrator card
+  const orchCard = addOrchestratorCard(chat);
+  scrollBottom(chat);
+
+  try {
+    const plan = await callBackend(
+      `Eres el orquestador de SuperAgent, un sistema multi-LLM. Modo: ${currentMode}. Explica brevemente (2-3 oraciones) cómo vas a orquestar esta tarea.`,
+      text
+    );
+    orchCard.querySelector('.orch-body').textContent = plan;
+  } catch(e) {
+    orchCard.querySelector('.orch-body').textContent = `Orquestando en modo ${currentMode}...`;
+  }
+  scrollBottom(chat);
+
+  if      (currentMode === 'router')   await runRouter(chat, text);
+  else if (currentMode === 'ensemble') await runEnsemble(chat, text);
+  else if (currentMode === 'debate')   await runDebate(chat, text);
+  else if (currentMode === 'pipeline') await runPipeline(chat, text);
+
+  document.getElementById('sendBtn').disabled = false;
+  scrollBottom(chat);
+}
+
+document.getElementById('user-input').addEventListener('keydown', e => {
+  if (e.ctrlKey && e.key === 'Enter') sendMessage();
+});
+</script>
+</body>
+</html>
