@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SuperAgent Hub v3</title>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1a1a26;
+    --border: #2a2a40;
+    --accent: #7c6af7;
+    --accent2: #a78bfa;
+    --green: #10b981;
+    --orange: #f59e0b;
+    --red: #ef4444;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --claude: #c9a227;
+    --gemini: #4285f4;
+    --gpt: #10a37f;
+    --mistral: #ff7000;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; display: flex; flex-direction: column; }
+
+  /* HEADER */
+  header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+  .logo { display: flex; align-items: center; gap: 10px; }
+  .logo-icon { width: 36px; height: 36px; background: linear-gradient(135deg, var(--accent), var(--accent2)); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+  .logo h1 { font-size: 1.1rem; font-weight: 700; }
+  .logo span { font-size: 0.7rem; background: var(--accent); color: white; padding: 2px 6px; border-radius: 4px; margin-left: 6px; }
+  .header-stats { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  .stat-pill { background: var(--surface2); border: 1px solid var(--border); border-radius: 20px; padding: 4px 12px; font-size: 0.75rem; display: flex; align-items: center; gap: 6px; }
+  .stat-pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.4} }
+
+  /* MAIN LAYOUT */
+  .main { display: flex; flex: 1; overflow: hidden; height: calc(100vh - 57px); }
+
+  /* SIDEBAR */
+  .sidebar { width: 260px; min-width: 260px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow-y: auto; }
+  .sidebar-section { padding: 14px; border-bottom: 1px solid var(--border); }
+  .sidebar-section h3 { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 10px; }
+
+  /* MODOS */
+  .mode-btn { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 6px; cursor: pointer; text-align: left; transition: all 0.2s; display: flex; align-items: center; gap: 10px; }
+  .mode-btn:hover { border-color: var(--accent); }
+  .mode-btn.active { background: rgba(124,106,247,0.15); border-color: var(--accent); }
+  .mode-btn .mode-icon { font-size: 1.1rem; }
+  .mode-btn .mode-info { flex: 1; }
+  .mode-btn .mode-name { font-size: 0.85rem; font-weight: 600; color: var(--text); }
+  .mode-btn .mode-desc { font-size: 0.7rem; color: var(--muted); margin-top: 2px; }
+  .mode-btn .cost-badge { font-size: 0.65rem; padding: 2px 6px; border-radius: 10px; font-weight: 600; white-space: nowrap; }
+  .cost-low { background: rgba(16,185,129,0.2); color: var(--green); }
+  .cost-med { background: rgba(245,158,11,0.2); color: var(--orange); }
+  .cost-high { background: rgba(239,68,68,0.2); color: var(--red); }
+
+  /* MODELOS */
+  .model-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .model-chip { padding: 4px 10px; border-radius: 12px; font-size: 0.72rem; font-weight: 600; border: 1px solid transparent; cursor: pointer; transition: all 0.2s; opacity: 0.5; }
+  .model-chip.active { opacity: 1; }
+  .chip-claude { border-color: var(--claude); color: var(--claude); }
+  .chip-claude.active { background: rgba(201,162,39,0.15); }
+  .chip-gemini { border-color: var(--gemini); color: var(--gemini); }
+  .chip-gemini.active { background: rgba(66,133,244,0.15); }
+  .chip-gpt { border-color: var(--gpt); color: var(--gpt); }
+  .chip-gpt.active { background: rgba(16,163,127,0.15); }
+  .chip-mistral { border-color: var(--mistral); color: var(--mistral); }
+  .chip-mistral.active { background: rgba(255,112,0,0.15); }
+
+  /* EJEMPLOS */
+  .example-btn { width: 100%; background: none; border: none; border-radius: 6px; padding: 6px 8px; text-align: left; color: var(--muted); font-size: 0.78rem; cursor: pointer; transition: all 0.15s; }
+  .example-btn:hover { background: var(--surface2); color: var(--text); }
+
+  /* STATS PANEL */
+  .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .stat-box { background: var(--surface2); border-radius: 8px; padding: 8px; text-align: center; }
+  .stat-box .val { font-size: 1.1rem; font-weight: 700; color: var(--accent2); }
+  .stat-box .lbl { font-size: 0.65rem; color: var(--muted); margin-top: 2px; }
+
+  /* HISTORIAL */
+  .history-list { max-height: 160px; overflow-y: auto; }
+  .history-item { padding: 6px 8px; border-radius: 6px; cursor: pointer; font-size: 0.75rem; color: var(--muted); display: flex; gap: 6px; align-items: flex-start; transition: all 0.15s; }
+  .history-item:hover { background: var(--surface2); color: var(--text); }
+  .history-item .h-mode { font-size: 0.65rem; background: var(--surface2); padding: 1px 5px; border-radius: 4px; white-space: nowrap; margin-top: 1px; }
+  .history-clear { width: 100%; background: none; border: 1px solid var(--border); border-radius: 6px; padding: 5px; font-size: 0.72rem; color: var(--muted); cursor: pointer; margin-top: 8px; transition: all 0.15s; }
+  .history-clear:hover { border-color: var(--red); color: var(--red); }
+
+  /* CHAT AREA */
+  .chat-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+  .messages::-webkit-scrollbar { width: 4px; }
+  .messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* WELCOME */
+  .welcome { text-align: center; padding: 40px 20px; }
+  .welcome .big-icon { font-size: 3rem; margin-bottom: 12px; }
+  .welcome h2 { font-size: 1.4rem; font-weight: 700; margin-bottom: 8px; }
+  .welcome p { color: var(--muted); font-size: 0.9rem; max-width: 400px; margin: 0 auto 20px; }
+  .quick-examples { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+  .quick-ex { background: var(--surface2); border: 1px solid var(--border); border-radius: 20px; padding: 6px 14px; font-size: 0.8rem; cursor: pointer; transition: all 0.2s; }
+  .quick-ex:hover { border-color: var(--accent); color: var(--accent2); }
+
+  /* MENSAJES */
+  .msg { display: flex; flex-direction: column; gap: 8px; animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+  .msg-user { align-items: flex-end; }
+  .msg-bubble { max-width: 85%; padding: 12px 16px; border-radius: 12px; font-size: 0.88rem; line-height: 1.6; }
+  .msg-user .msg-bubble { background: linear-gradient(135deg, var(--accent), #6d5ce7); color: white; border-radius: 12px 12px 2px 12px; }
+  .msg-assistant { align-items: flex-start; }
+  .msg-meta { display: flex; align-items: center; gap: 8px; font-size: 0.72rem; color: var(--muted); }
+  .msg-model-tag { padding: 2px 8px; border-radius: 10px; font-weight: 600; font-size: 0.68rem; }
+
+  /* RESPONSES GRID */
+  .responses-grid { display: flex; flex-direction: column; gap: 10px; max-width: 90%; }
+  .model-response { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .model-response-header { padding: 8px 14px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); }
+  .model-name-badge { font-size: 0.75rem; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+  .model-response-body { padding: 12px 14px; font-size: 0.85rem; line-height: 1.7; color: var(--text); white-space: pre-wrap; }
+  .token-info { font-size: 0.68rem; color: var(--muted); display: flex; gap: 10px; }
+  .token-info span { display: flex; align-items: center; gap: 3px; }
+
+  /* SYNTHESIS */
+  .synthesis-block { background: rgba(124,106,247,0.08); border: 1px solid rgba(124,106,247,0.3); border-radius: 10px; padding: 14px; max-width: 90%; }
+  .synthesis-header { font-size: 0.75rem; font-weight: 700; color: var(--accent2); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .synthesis-body { font-size: 0.85rem; line-height: 1.7; white-space: pre-wrap; }
+
+  /* STREAMING */
+  .streaming-indicator { display: flex; gap: 4px; align-items: center; padding: 8px 14px; }
+  .streaming-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: bounce 1.2s infinite; }
+  .streaming-dot:nth-child(2){animation-delay:0.2s}
+  .streaming-dot:nth-child(3){animation-delay:0.4s}
+  @keyframes bounce{0%,80%,100%{transform:scale(0)}40%{transform:scale(1)}}
+
+  /* COST BAR */
+  .cost-bar { background: var(--surface2); border-top: 1px solid var(--border); padding: 8px 20px; display: flex; align-items: center; gap: 16px; font-size: 0.75rem; flex-wrap: wrap; }
+  .cost-item { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+  .cost-value { font-weight: 700; color: var(--text); }
+  .cost-highlight { color: var(--orange); }
+  .cost-warn { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); border-radius: 6px; padding: 2px 8px; color: var(--red); font-size: 0.7rem; display: none; }
+  .cost-warn.show { display: block; }
+  .mode-warning { background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3); border-radius: 6px; padding: 4px 10px; color: var(--orange); font-size: 0.72rem; display: none; align-items: center; gap: 6px; }
+  .mode-warning.show { display: flex; }
+
+  /* INPUT AREA */
+  .input-area { background: var(--surface); border-top: 1px solid var(--border); padding: 14px 20px; }
+  .input-wrap { display: flex; gap: 10px; align-items: flex-end; background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px; transition: border-color 0.2s; }
+  .input-wrap:focus-within { border-color: var(--accent); }
+  #userInput { flex: 1; background: none; border: none; outline: none; color: var(--text); font-size: 0.9rem; resize: none; min-height: 24px; max-height: 120px; line-height: 1.5; font-family: inherit; }
+  #userInput::placeholder { color: var(--muted); }
+  .send-btn { background: var(--accent); border: none; border-radius: 8px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; flex-shrink: 0; }
+  .send-btn:hover { background: var(--accent2); transform: scale(1.05); }
+  .send-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+  .send-btn svg { width: 16px; height: 16px; fill: white; }
+  .input-hints { display: flex; gap: 12px; margin-top: 8px; font-size: 0.7rem; color: var(--muted); }
+  .char-count { margin-left: auto; }
+  .char-count.warn { color: var(--orange); }
+
+  /* SCROLLBAR */
+  .sidebar::-webkit-scrollbar { width: 3px; }
+  .sidebar::-webkit-scrollbar-thumb { background: var(--border); }
+
+  /* RESPONSIVE */
+  @media (max-width: 700px) {
+    .sidebar { display: none; }
+    .main { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">⚡</div>
+    <div>
+      <h1>SuperAgent <span>v3</span></h1>
+    </div>
+  </div>
+  <div class="header-stats">
+    <div class="stat-pill"><div class="dot"></div> Backend activo</div>
+    <div class="stat-pill">🔒 API Segura</div>
+    <div class="stat-pill" id="sessionTokenPill">💬 0 tokens sesión</div>
+    <div class="stat-pill" id="queriesPill">📊 0 consultas</div>
+  </div>
+</header>
+
+<div class="main">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+
+    <div class="sidebar-section">
+      <h3>Modo de Operación</h3>
+      <button class="mode-btn active" data-mode="router" onclick="setMode('router',this)">
+        <span class="mode-icon">🔀</span>
+        <div class="mode-info">
+          <div class="mode-name">Router</div>
+          <div class="mode-desc">1 modelo óptimo</div>
+        </div>
+        <span class="cost-badge cost-low">💚 Bajo</span>
+      </button>
+      <button class="mode-btn" data-mode="ensemble" onclick="setMode('ensemble',this)">
+        <span class="mode-icon">🎻</span>
+        <div class="mode-info">
+          <div class="mode-name">Ensemble</div>
+          <div class="mode-desc">Todos + síntesis</div>
+        </div>
+        <span class="cost-badge cost-med">🟡 Medio</span>
+      </button>
+      <button class="mode-btn" data-mode="debate" onclick="setMode('debate',this)">
+        <span class="mode-icon">⚔️</span>
+        <div class="mode-info">
+          <div class="mode-name">Debate</div>
+          <div class="mode-desc">Se critican entre sí</div>
+        </div>
+        <span class="cost-badge cost-high">🔴 Alto</span>
+      </button>
+      <button class="mode-btn" data-mode="pipeline" onclick="setMode('pipeline',this)">
+        <span class="mode-icon">🔗</span>
+        <div class="mode-info">
+          <div class="mode-name">Pipeline</div>
+          <div class="mode-desc">Cada uno enriquece</div>
+        </div>
+        <span class="cost-badge cost-high">🔴 Alto</span>
+      </button>
+    </div>
+
+    <div class="sidebar-section">
+      <h3>Modelos Activos</h3>
+      <div class="model-chips">
+        <div class="model-chip chip-claude active" onclick="toggleModel('claude',this)">Claude</div>
+        <div class="model-chip chip-gemini active" onclick="toggleModel('gemini',this)">Gemini</div>
+        <div class="model-chip chip-gpt active" onclick="toggleModel('gpt',this)">GPT-4</div>
+        <div class="model-chip chip-mistral active" onclick="toggleModel('mistral',this)">Mistral</div>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <h3>Estadísticas de Sesión</h3>
+      <div class="stats-grid">
+        <div class="stat-box"><div class="val" id="statTokens">0</div><div class="lbl">Tokens totales</div></div>
+        <div class="stat-box"><div class="val" id="statCost">$0.00</div><div class="lbl">Coste USD</div></div>
+        <div class="stat-box"><div class="val" id="statQueries">0</div><div class="lbl">Consultas</div></div>
+        <div class="stat-box"><div class="val" id="statAvg">0</div><div class="lbl">Tokens/consulta</div></div>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <h3>Ejemplos Rápidos</h3>
+      <button class="example-btn" onclick="setExample(this.textContent)">🍳 Explícame la fotosíntesis con una analogía de cocina</button>
+      <button class="example-btn" onclick="setExample(this.textContent)">💻 Plan de aprendizaje para aprender Python en 3 meses</button>
+      <button class="example-btn" onclick="setExample(this.textContent)">🌌 Escribe el inicio de una novela de ciencia ficción</button>
+      <button class="example-btn" onclick="setExample(this.textContent)">⚖️ ¿Es ético el uso de IA en diagnósticos médicos?</button>
+      <button class="example-btn" onclick="setExample(this.textContent)">🚀 5 ideas de negocio para el sector de reparación tecnológica</button>
+      <button class="example-btn" onclick="setExample(this.textContent)">🐍 Código Python para ordenar una lista de diccionarios</button>
+    </div>
+
+    <div class="sidebar-section">
+      <h3>Historial</h3>
+      <div class="history-list" id="historyList">
+        <div style="font-size:0.75rem;color:var(--muted);text-align:center;padding:10px">Sin historial aún</div>
+      </div>
+      <button class="history-clear" onclick="clearHistory()">🗑️ Limpiar historial</button>
+    </div>
+
+  </div>
+
+  <!-- CHAT -->
+  <div class="chat-area">
+    <div class="messages" id="messages">
+      <div class="welcome" id="welcome">
+        <div class="big-icon">⚡</div>
+        <h2>SuperAgent Hub v3</h2>
+        <p>Orquestación multi-LLM con Claude, Gemini, GPT-4 y Mistral. Ahora con streaming, estadísticas de tokens y memoria de sesión.</p>
+        <div class="quick-examples">
+          <div class="quick-ex" onclick="setExample('Explícame la IA con una analogía simple')">💡 Analogía IA</div>
+          <div class="quick-ex" onclick="setExample('Ideas para mejorar un negocio de reparación de móviles')">🔧 Ideas negocio</div>
+          <div class="quick-ex" onclick="setExample('¿Cuál es el futuro de las telecomunicaciones?')">📡 Futuro telecom</div>
+          <div class="quick-ex" onclick="setExample('Escribe un email de bienvenida para clientes nuevos')">📧 Email cliente</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- COST BAR -->
+    <div class="cost-bar" id="costBar" style="display:none">
+      <div class="cost-item">⚡ Última consulta: <span class="cost-value" id="lastTokens">-</span> tokens</div>
+      <div class="cost-item">💰 Coste estimado: <span class="cost-value cost-highlight" id="lastCost">-</span></div>
+      <div class="cost-item">📥 Input: <span class="cost-value" id="lastInput">-</span></div>
+      <div class="cost-item">📤 Output: <span class="cost-value" id="lastOutput">-</span></div>
+      <div class="cost-warn" id="costWarn">⚠️ Consulta cara</div>
+      <div class="mode-warning" id="modeWarn">⚠️ Modo de alto consumo activo</div>
+    </div>
+
+    <!-- INPUT -->
+    <div class="input-area">
+      <div class="input-wrap">
+        <textarea id="userInput" placeholder="Escribe tu consulta aquí... (Ctrl+Enter para enviar)" rows="1" oninput="autoResize(this);updateCharCount(this)" onkeydown="handleKey(event)"></textarea>
+        <button class="send-btn" id="sendBtn" onclick="sendQuery()">
+          <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+        </button>
+      </div>
+      <div class="input-hints">
+        <span id="modeLabel">Modo: <strong>ROUTER</strong> · Coste estimado: <strong>💚 Bajo</strong></span>
+        <span class="char-count" id="charCount">0 / 2000</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── STATE ───────────────────────────────────────────────────────────────────
+let currentMode = 'router';
+let activeModels = ['claude','gemini','gpt','mistral'];
+let sessionTokens = 0;
+let sessionCost = 0;
+let sessionQueries = 0;
+let history = [];
+let isLoading = false;
+let conversationHistory = []; // memoria de sesión
+
+// Token pricing (per 1M tokens, USD) - approximate blended
+const PRICING = {
+  claude:  { input: 3.0,  output: 15.0 },
+  gemini:  { input: 1.25, output: 5.0  },
+  gpt:     { input: 30.0, output: 60.0 },
+  mistral: { input: 2.0,  output: 6.0  }
+};
+
+const MODE_INFO = {
+  router:   { label: 'ROUTER',   cost: '💚 Bajo',  warn: false },
+  ensemble: { label: 'ENSEMBLE', cost: '🟡 Medio', warn: true  },
+  debate:   { label: 'DEBATE',   cost: '🔴 Alto',  warn: true  },
+  pipeline: { label: 'PIPELINE', cost: '🔴 Alto',  warn: true  }
+};
+
+const MODEL_COLORS = {
+  claude: '#c9a227', gemini: '#4285f4', gpt: '#10a37f', mistral: '#ff7000'
+};
+const MODEL_NAMES = {
+  claude: '🟡 Claude', gemini: '🔵 Gemini', gpt: '🟢 GPT-4', mistral: '🟠 Mistral'
+};
+
+// ─── UI HELPERS ───────────────────────────────────────────────────────────────
+function setMode(mode, btn) {
+  currentMode = mode;
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const info = MODE_INFO[mode];
+  document.getElementById('modeLabel').innerHTML = `Modo: <strong>${info.label}</strong> · Coste estimado: <strong>${info.cost}</strong>`;
+  const modeWarn = document.getElementById('modeWarn');
+  if (info.warn) { modeWarn.classList.add('show'); modeWarn.style.display='flex'; }
+  else { modeWarn.classList.remove('show'); modeWarn.style.display='none'; }
+}
+
+function toggleModel(model, el) {
+  const idx = activeModels.indexOf(model);
+  if (idx > -1) {
+    if (activeModels.length === 1) return; // mínimo 1
+    activeModels.splice(idx, 1);
+    el.classList.remove('active');
+  } else {
+    activeModels.push(model);
+    el.classList.add('active');
+  }
+}
+
+function setExample(text) {
+  const txt = text.replace(/^[^\s]+\s/, '').trim();
+  document.getElementById('userInput').value = txt;
+  autoResize(document.getElementById('userInput'));
+  updateCharCount(document.getElementById('userInput'));
+  document.getElementById('userInput').focus();
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+function updateCharCount(el) {
+  const len = el.value.length;
+  const el2 = document.getElementById('charCount');
+  el2.textContent = `${len} / 2000`;
+  el2.classList.toggle('warn', len > 1600);
+}
+
+function handleKey(e) {
+  if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); sendQuery(); }
+}
+
+function clearHistory() {
+  history = [];
+  conversationHistory = [];
+  document.getElementById('historyList').innerHTML = '<div style="font-size:0.75rem;color:var(--muted);text-align:center;padding:10px">Sin historial aún</div>';
+}
+
+function updateHistoryUI() {
+  if (history.length === 0) return;
+  const list = document.getElementById('historyList');
+  list.innerHTML = history.slice(-6).reverse().map(h => `
+    <div class="history-item" onclick="setExample('${h.query.replace(/'/g,"\\'")}')">
+      <span class="h-mode">${h.mode}</span>
+      <span>${h.query.substring(0,50)}${h.query.length>50?'...':''}</span>
+    </div>
+  `).join('');
+}
+
+function updateSessionStats(inputTk, outputTk, models) {
+  const totalTk = inputTk + outputTk;
+  // calcular coste
+  let cost = 0;
+  models.forEach(m => {
+    cost += (inputTk / 1_000_000) * PRICING[m].input;
+    cost += (outputTk / 1_000_000) * PRICING[m].output;
+  });
+  sessionTokens += totalTk;
+  sessionCost += cost;
+  sessionQueries++;
+
+  document.getElementById('statTokens').textContent = sessionTokens.toLocaleString();
+  document.getElementById('statCost').textContent = '$' + sessionCost.toFixed(4);
+  document.getElementById('statQueries').textContent = sessionQueries;
+  document.getElementById('statAvg').textContent = Math.round(sessionTokens / sessionQueries).toLocaleString();
+  document.getElementById('sessionTokenPill').textContent = `💬 ${sessionTokens.toLocaleString()} tokens`;
+  document.getElementById('queriesPill').textContent = `📊 ${sessionQueries} consultas`;
+
+  // cost bar
+  const costBar = document.getElementById('costBar');
+  costBar.style.display = 'flex';
+  document.getElementById('lastTokens').textContent = totalTk.toLocaleString();
+  document.getElementById('lastCost').textContent = '$' + cost.toFixed(5);
+  document.getElementById('lastInput').textContent = inputTk.toLocaleString();
+  document.getElementById('lastOutput').textContent = outputTk.toLocaleString();
+  document.getElementById('costWarn').classList.toggle('show', cost > 0.01);
+}
+
+// ─── MESSAGES UI ─────────────────────────────────────────────────────────────
+function addUserMessage(text) {
+  document.getElementById('welcome')?.remove();
+  const msgs = document.getElementById('messages');
+  const div = document.createElement('div');
+  div.className = 'msg msg-user';
+  div.innerHTML = `<div class="msg-bubble">${escHtml(text)}</div>`;
+  msgs.appendChild(div);
+  scrollBottom();
+}
+
+function addStreamingIndicator(id) {
+  const msgs = document.getElementById('messages');
+  const div = document.createElement('div');
+  div.id = id;
+  div.className = 'msg msg-assistant';
+  div.innerHTML = `<div class="streaming-indicator"><div class="streaming-dot"></div><div class="streaming-dot"></div><div class="streaming-dot"></div><span style="font-size:0.75rem;color:var(--muted);margin-left:6px">Procesando...</span></div>`;
+  msgs.appendChild(div);
+  scrollBottom();
+  return div;
+}
+
+function addResponsesGrid(responses, synthesis, mode) {
+  const msgs = document.getElementById('messages');
+
+  if (mode === 'router') {
+    // Single response
+    const r = responses[0];
+    const div = document.createElement('div');
+    div.className = 'msg msg-assistant';
+    div.innerHTML = `
+      <div class="msg-meta">
+        <span class="msg-model-tag" style="background:${MODEL_COLORS[r.model]}22;color:${MODEL_COLORS[r.model]};border:1px solid ${MODEL_COLORS[r.model]}44">${MODEL_NAMES[r.model]}</span>
+        <span>Router seleccionó este modelo</span>
+        <span>·</span><span>~${r.tokens} tokens</span>
+      </div>
+      <div class="model-response" style="max-width:90%">
+        <div class="model-response-body">${escHtml(r.content)}</div>
+      </div>`;
+    msgs.appendChild(div);
+  } else {
+    // Multiple responses
+    const grid = document.createElement('div');
+    grid.className = 'msg msg-assistant';
+    const inner = document.createElement('div');
+    inner.className = 'responses-grid';
+
+    responses.forEach(r => {
+      const card = document.createElement('div');
+      card.className = 'model-response';
+      card.innerHTML = `
+        <div class="model-response-header">
+          <div class="model-name-badge" style="color:${MODEL_COLORS[r.model]}">${MODEL_NAMES[r.model]}</div>
+          <div class="token-info">
+            <span>📥 ${r.inputTokens||'~'}</span>
+            <span>📤 ${r.outputTokens||'~'}</span>
+            <span>⚡ ${r.tokens||0} total</span>
+          </div>
+        </div>
+        <div class="model-response-body">${escHtml(r.content)}</div>`;
+      inner.appendChild(card);
+    });
+    grid.appendChild(inner);
+    msgs.appendChild(grid);
+
+    if (synthesis) {
+      const syn = document.createElement('div');
+      syn.className = 'msg msg-assistant';
+      syn.innerHTML = `
+        <div class="synthesis-block">
+          <div class="synthesis-header">✨ Síntesis de Claude</div>
+          <div class="synthesis-body">${escHtml(synthesis)}</div>
+        </div>`;
+      msgs.appendChild(syn);
+    }
+  }
+  scrollBottom();
+}
+
+function scrollBottom() {
+  const msgs = document.getElementById('messages');
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function escHtml(t) {
+  return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+}
+
+// ─── MAIN API CALL ────────────────────────────────────────────────────────────
+async function sendQuery() {
+  const input = document.getElementById('userInput');
+  const text = input.value.trim();
+  if (!text || isLoading) return;
+  if (text.length > 2000) { alert('Máximo 2000 caracteres'); return; }
+
+  isLoading = true;
+  document.getElementById('sendBtn').disabled = true;
+  input.value = '';
+  input.style.height = 'auto';
+  updateCharCount(input);
+
+  addUserMessage(text);
+
+  // Guardar en historial
+  history.push({ query: text, mode: currentMode.toUpperCase() });
+  updateHistoryUI();
+
+  // Añadir al contexto de conversación
+  conversationHistory.push({ role: 'user', content: text });
+
+  const loadId = 'loading-' + Date.now();
+  const loadEl = addStreamingIndicator(loadId);
+
+  try {
+    const result = await orchestrate(text, currentMode, activeModels, conversationHistory);
+    loadEl.remove();
+    addResponsesGrid(result.responses, result.synthesis, currentMode);
+
+    // Actualizar stats
+    const totalInput = result.responses.reduce((a,r) => a + (r.inputTokens||0), 0);
+    const totalOutput = result.responses.reduce((a,r) => a + (r.outputTokens||0), 0);
+    updateSessionStats(totalInput, totalOutput, result.responses.map(r=>r.model));
+
+    // Añadir respuesta al historial de conversación
+    const assistantMsg = result.synthesis || result.responses.map(r=>`[${r.model}]: ${r.content}`).join('\n\n');
+    conversationHistory.push({ role: 'assistant', content: assistantMsg });
+
+    // Limitar historial a 10 turnos
+    if (conversationHistory.length > 20) conversationHistory = conversationHistory.slice(-20);
+
+  } catch(e) {
+    loadEl.remove();
+    const msgs = document.getElementById('messages');
+    const div = document.createElement('div');
+    div.className = 'msg msg-assistant';
+    div.innerHTML = `<div style="background:rgba(239,68,68,0.1);border:1px solid var(--red);border-radius:10px;padding:12px;font-size:0.85rem;color:var(--red);max-width:80%">❌ Error: ${escHtml(e.message)}<br><br><small>Verifica que el backend de Netlify esté activo y las API keys configuradas.</small></div>`;
+    msgs.appendChild(div);
+    scrollBottom();
+  }
+
+  isLoading = false;
+  document.getElementById('sendBtn').disabled = false;
+  input.focus();
+}
+
+// ─── ORCHESTRATION ENGINE ─────────────────────────────────────────────────────
+async function orchestrate(query, mode, models, history) {
+  // System prompt base
+  const systemPrompt = `Eres un asistente experto multimodal. Responde de forma clara, útil y concisa en español. Máximo 300 palabras por respuesta a menos que sea necesario más detalle.`;
+
+  // Construir messages con historial
+  const msgs = [...history.slice(0,-1)]; // todo menos el último (que es el query actual)
+
+  if (mode === 'router') {
+    return await routerMode(query, msgs, systemPrompt, models);
+  } else if (mode === 'ensemble') {
+    return await ensembleMode(query, msgs, systemPrompt, models);
+  } else if (mode === 'debate') {
+    return await debateMode(query, msgs, systemPrompt, models);
+  } else if (mode === 'pipeline') {
+    return await pipelineMode(query, msgs, systemPrompt, models);
+  }
+}
+
+async function callClaude(systemPrompt, messages) {
+  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1000,
+      system: systemPrompt,
+      messages: messages
+    })
+  });
+  if (!resp.ok) {
+    const err = await resp.json().catch(()=>({}));
+    throw new Error(err.error?.message || `HTTP ${resp.status}`);
+  }
+  const data = await resp.json();
+  return {
+    content: data.content[0]?.text || '',
+    inputTokens: data.usage?.input_tokens || 0,
+    outputTokens: data.usage?.output_tokens || 0
+  };
+}
+
+// Simulación de otros modelos con Claude (en producción se conectarían a sus APIs reales)
+async function callModel(model, systemPrompt, messages) {
+  // En esta demo, todos pasan por Claude con un prefijo de rol diferente
+  // En producción: GPT-4 → OpenAI API, Gemini → Google API, Mistral → Mistral API
+  const rolePrompts = {
+    claude:  'Eres Claude de Anthropic. Responde con razonamiento profundo y matices éticos.',
+    gemini:  'Eres Gemini de Google. Responde con un enfoque analítico, datos y estructura clara.',
+    gpt:     'Eres GPT-4 de OpenAI. Responde de forma directa, práctica y orientada a soluciones.',
+    mistral: 'Eres Mistral. Responde de forma eficiente, concisa y con enfoque técnico preciso.'
+  };
+  const sys = rolePrompts[model] + ' ' + systemPrompt;
+  const result = await callClaude(sys, messages);
+  return { model, ...result, tokens: result.inputTokens + result.outputTokens };
+}
+
+async function routerMode(query, history, system, models) {
+  // Router: Claude elige el mejor modelo y responde
+  const routerSystem = `${system}\n\nEres el orquestador Router. Analiza la consulta y responde directamente como el modelo más adecuado para esta tarea. Indica brevemente al inicio por qué fuiste elegido.`;
+  const bestModel = chooseRouter(query, models);
+  const messages = [...history, { role: 'user', content: query }];
+  const result = await callModel(bestModel, routerSystem, messages);
+  return { responses: [result], synthesis: null };
+}
+
+function chooseRouter(query, models) {
+  const q = query.toLowerCase();
+  if ((q.includes('código') || q.includes('código') || q.includes('python') || q.includes('javascript') || q.includes('programa')) && models.includes('gpt')) return 'gpt';
+  if ((q.includes('creativ') || q.includes('escribe') || q.includes('novela') || q.includes('poema') || q.includes('historia')) && models.includes('claude')) return 'claude';
+  if ((q.includes('dato') || q.includes('estadístic') || q.includes('analiz') || q.includes('número')) && models.includes('gemini')) return 'gemini';
+  if ((q.includes('técnic') || q.includes('arquitectura') || q.includes('api') || q.includes('servidor')) && models.includes('mistral')) return 'mistral';
+  return models.includes('claude') ? 'claude' : models[0];
+}
+
+async function ensembleMode(query, history, system, models) {
+  const messages = [...history, { role: 'user', content: query }];
+  // Llamadas paralelas a todos los modelos
+  const responses = await Promise.all(
+    models.map(m => callModel(m, system, messages))
+  );
+  // Síntesis con Claude
+  const synthContent = responses.map(r => `### ${r.model.toUpperCase()}:\n${r.content}`).join('\n\n');
+  const synthResult = await callClaude(
+    'Eres un sintetizador experto. Combina las siguientes respuestas de diferentes LLMs en una respuesta única, cohesionada y superior que tome lo mejor de cada una. En español.',
+    [{ role: 'user', content: `Consulta original: "${query}"\n\nRespuestas:\n${synthContent}` }]
+  );
+  // Añadir tokens de síntesis al primer modelo
+  responses[0].inputTokens += synthResult.inputTokens;
+  responses[0].outputTokens += synthResult.outputTokens;
+  return { responses, synthesis: synthResult.content };
+}
+
+async function debateMode(query, history, system, models) {
+  const messages = [...history, { role: 'user', content: query }];
+  // Ronda 1: todos responden
+  const round1 = await Promise.all(
+    models.map(m => callModel(m, system + '\nDa una posición clara y argumentada.', messages))
+  );
+  // Ronda 2: cada modelo critica a los demás
+  const debateContext = round1.map(r => `${r.model}: ${r.content}`).join('\n\n');
+  const round2 = await Promise.all(
+    models.map(async m => {
+      const critique = await callModel(m,
+        `Eres ${m}. Evalúa críticamente estas respuestas de otros modelos y defiende o matiza tu posición. Sé específico y constructivo.`,
+        [{ role: 'user', content: `Consulta: "${query}"\n\nRespuestas iniciales:\n${debateContext}` }]
+      );
+      return { ...critique, content: `📌 Posición inicial:\n${round1.find(r=>r.model===m).content}\n\n💬 Crítica y refinamiento:\n${critique.content}`, tokens: round1.find(r=>r.model===m).tokens + critique.tokens, inputTokens: round1.find(r=>r.model===m).inputTokens + critique.inputTokens, outputTokens: round1.find(r=>r.model===m).outputTokens + critique.outputTokens };
+    })
+  );
+  // Síntesis del debate
+  const synthResult = await callClaude(
+    'Eres el árbitro del debate. Tras analizar todos los argumentos, presenta una conclusión equilibrada y bien fundamentada. En español.',
+    [{ role: 'user', content: `Debate sobre: "${query}"\n\n${round2.map(r=>`[${r.model}]: ${r.content}`).join('\n\n')}` }]
+  );
+  round2[0].inputTokens += synthResult.inputTokens;
+  round2[0].outputTokens += synthResult.outputTokens;
+  return { responses: round2, synthesis: `⚖️ Conclusión del debate:\n${synthResult.content}` };
+}
+
+async function pipelineMode(query, history, system, models) {
+  let accumulated = query;
+  const responses = [];
+  for (const m of models) {
+    const pipeSystem = responses.length === 0
+      ? system + '\nResponde a la consulta inicial de forma completa.'
+      : system + '\nTienes la respuesta anterior. Enriquécela, añade perspectivas únicas, corrige errores y hazla más completa. No empieces desde cero.';
+    const msgs = [...history, { role: 'user', content: accumulated }];
+    const r = await callModel(m, pipeSystem, msgs);
+    responses.push(r);
+    accumulated = `Consulta original: "${query}"\n\nRespuesta enriquecida hasta ahora:\n${r.content}\n\nSigue enriqueciendo:`;
+  }
+  return { responses, synthesis: `✅ Respuesta final del pipeline:\n${responses[responses.length-1].content}` };
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('userInput').focus();
+});
+</script>
+</body>
+</html>
